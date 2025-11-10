@@ -1,0 +1,16 @@
+
+.git/
+.gitignore
+
+.DS_Store
+Thumbs.db
+
+contracts/out/
+contracts/cache/
+
+*.env
+*.env.local
+!.env.example
+
+web/node_modules/
+web/dist/

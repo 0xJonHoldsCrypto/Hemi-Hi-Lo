@@ -1,0 +1,15 @@
+# Node / web
+node_modules/
+web/node_modules/
+web/dist/
+web/.env
+web/.env.local
+
+# Foundry / forge
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/.env
+
+# Logs
+*.log

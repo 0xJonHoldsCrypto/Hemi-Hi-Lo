@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root { color-scheme: dark; }
+body { @apply bg-gray-950 text-gray-100; }
+.btn { @apply px-4 py-2 rounded-2xl bg-gray-800 hover:bg-gray-700 disabled:opacity-50; }
+.input { @apply px-3 py-2 rounded-xl bg-gray-900 border border-gray-700; }
+.card { @apply p-4 rounded-2xl bg-gray-900/60 border border-gray-800 shadow; }
+/* Dual range slider */
+.range-wrap {
+  position: relative;
+  width: 100%;
+  padding: 8px 0;
+}
+
+.range-track {
+  position: relative;
+  height: 6px;
+  border-radius: 9999px;
+  background: #23252b;
+}
+
+.range-highlight {
+  position: absolute;
+  top: 8px; /* aligns with track top + padding */
+  height: 6px;
+  border-radius: 9999px;
+  background: #6366f1; /* indigo */
+  pointer-events: none;
+}
+
+.range-thumb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none; /* allow both inputs to overlap without stealing drags */
+}
+
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #6366f1;
+  pointer-events: auto; /* re-enable interaction on the actual thumb */
+  position: relative;
+}
+
+.range-thumb::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #6366f1;
+  pointer-events: auto;
+}

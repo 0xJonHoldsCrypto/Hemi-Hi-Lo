@@ -1,0 +1,9 @@
+# Ignore everything except the frontend
+*
+!web/**
+!web/.env
+!web/package.json
+!web/vite.config.*
+!web/index.html
+!web/src/**
+!web/public/**

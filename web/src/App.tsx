@@ -363,7 +363,14 @@ function App() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6 hemi-dark">
-      {/* header with Connect */}
+      {/* Test Warning Banner */}
+<div className="bg-red-700/90 text-white text-sm md:text-base px-4 py-3 rounded-lg shadow-md text-center mb-4">
+  ⚠️ <strong>TEST MODE:</strong> This app is in active testing on the Hemi network.
+  Do <u>NOT</u> use unless you are prepared to lose funds. 
+  Smart contracts and randomness sources may fail or change at any time.
+</div>
+
+            {/* header with Connect */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-hemi">Hemi Hi-Lo (USDC.e)</h1>
         <div className="flex items-center gap-3">

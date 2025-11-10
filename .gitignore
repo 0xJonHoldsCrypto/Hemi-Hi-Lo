@@ -4,6 +4,7 @@ web/node_modules/
 web/dist/
 web/.env
 web/.env.local
+.DS_Store
 
 # Foundry / forge
 contracts/out/

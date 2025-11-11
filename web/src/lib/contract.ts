@@ -7,18 +7,22 @@ import {
   formatUnits,
   ethers,
 } from 'ethers'
+import { MAINNET, TESTNET, type NetworkConfig } from './networks'
 
-// ── ENV ──────────────────────────────────────────────────────────
-const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as string
-const USDC_ADDRESS     = import.meta.env.VITE_USDC_E_ADDRESS as string
-const RPC_URL          = import.meta.env.VITE_RPC_URL as string
-const HBK_ADDRESS      = import.meta.env.VITE_HBK_ADDRESS as string
+// ── RUNTIME NETWORK (default: mainnet) ───────────────────────────
+let NET: NetworkConfig = MAINNET
+export function setNetwork(cfg: NetworkConfig) { NET = cfg }
+export function getNetwork(): NetworkConfig { return NET }
 
-const EXPLORER_URL =
-  (import.meta.env.VITE_EXPLORER_URL as string) || 'https://explorer.hemi.xyz'
-
-const CHAIN_ID_DEC = 43111
-const CHAIN_ID_HEX = '0xA867'
+function requireAddress(name: string, val?: string) {
+  if (!val || !/^0x[0-9a-fA-F]{40}$/.test(val)) {
+    throw new Error(`${name} not set for ${NET.key}`)
+  }
+  return val
+}
+function gameAddress() { return requireAddress('GAME', NET.contracts.game) }
+function usdcAddress() { return requireAddress('USDC.e', NET.contracts.usdcE) }
+function hbkAddress()  { return requireAddress('HBK', NET.contracts.hbk) }
 
 // ── STATE ────────────────────────────────────────────────────────
 let injectedProvider: BrowserProvider | null = null
@@ -34,7 +38,7 @@ const HiLoAbi = [
   'function owner() view returns (address)',
   'function nextBetId() view returns (uint256)',
   'function bets(uint256) view returns (address player, uint128 wager, uint16 low, uint16 high, uint64 placedAt, uint32 btcHeight, bool settled, bool won, uint16 roll)',
-  // extra config reads (so we can precheck client-side)
+  // extra config reads
   'function paused() view returns (bool)',
   'function maxBet() view returns (uint256)',
   'function maxProfit() view returns (uint256)',
@@ -96,46 +100,46 @@ export async function connectWallet(): Promise<string> {
   await injectedProvider.send('eth_requestAccounts', [])
   cachedSigner = await injectedProvider.getSigner()
   cachedAccount = await cachedSigner.getAddress()
-  return cachedAccount
+  return cachedAccount!
 }
 
 export function getConnectedAccount(): string | null { return cachedAccount }
 
-// ── Providers & Contracts ────────────────────────────────────────
+// ── Providers & Contracts (network-aware) ────────────────────────
 function getReadProvider() {
-  return new JsonRpcProvider(RPC_URL, { chainId: CHAIN_ID_DEC, name: 'hemi' })
+  return new JsonRpcProvider(NET.rpcUrl, { chainId: NET.chainIdDec, name: NET.label })
 }
 function requireSigner(): ethers.Signer {
   if (!cachedSigner) throw new Error('Wallet not connected')
   return cachedSigner
 }
-function gameWithSigner() { return new Contract(CONTRACT_ADDRESS, HiLoAbi, requireSigner()) }
-function usdcWithSigner() { return new Contract(USDC_ADDRESS, ERC20Abi, requireSigner()) }
-function gameRead()       { return new Contract(CONTRACT_ADDRESS, HiLoAbi, injectedProvider ?? getReadProvider()) }
-function usdcRead()       { return new Contract(USDC_ADDRESS, ERC20Abi, injectedProvider ?? getReadProvider()) }
-function hbkRead()        { return new Contract(HBK_ADDRESS, HBKAbi, injectedProvider ?? getReadProvider()) }
+function gameWithSigner() { return new Contract(gameAddress(), HiLoAbi, requireSigner()) }
+function usdcWithSigner() { return new Contract(usdcAddress(), ERC20Abi, requireSigner()) }
+function gameRead()       { return new Contract(gameAddress(), HiLoAbi, injectedProvider ?? getReadProvider()) }
+function usdcRead()       { return new Contract(usdcAddress(), ERC20Abi, injectedProvider ?? getReadProvider()) }
+function hbkRead()        { return new Contract(hbkAddress(),  HBKAbi, injectedProvider ?? getReadProvider()) }
 
 // ── Network helper ───────────────────────────────────────────────
 export async function ensureNetwork43111() {
   const eth = (window as any).ethereum
   if (!eth) throw new Error('No wallet detected')
   const current = await eth.request({ method: 'eth_chainId' })
-  if (current === CHAIN_ID_HEX) return
+  if (current === NET.chainIdHex) return
   try {
-    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] })
+    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: NET.chainIdHex }] })
   } catch (e: any) {
     if (e?.code === 4902) {
       await eth.request({
         method: 'wallet_addEthereumChain',
         params: [{
-          chainId: CHAIN_ID_HEX,
-          chainName: 'Hemi Network',
+          chainId: NET.chainIdHex,
+          chainName: NET.label,
           nativeCurrency: { name: 'HEMI', symbol: 'HEMI', decimals: 18 },
-          rpcUrls: [RPC_URL],
-          blockExplorerUrls: [EXPLORER_URL],
+          rpcUrls: [NET.rpcUrl],
+          blockExplorerUrls: [NET.explorerUrl],
         }],
       })
-      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] })
+      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: NET.chainIdHex }] })
     } else {
       throw e
     }
@@ -253,7 +257,7 @@ export async function readUsdcState(owner?: string) {
   const [dec, bal, alw] = await Promise.all([
     getUsdcDecimals(),
     usdc.balanceOf(acct),
-    usdc.allowance(acct, CONTRACT_ADDRESS),
+    usdc.allowance(acct, gameAddress()),
   ])
   return { decimals: dec, balance: bal as bigint, allowance: alw as bigint }
 }
@@ -261,7 +265,6 @@ export async function readUsdcState(owner?: string) {
 /** Pure helpers that mirror solidity checks for placeBet */
 function calcPotentialPayout(amount: bigint, houseEdgeBps: number, low: number, high: number) {
   const rangeSize = BigInt(high - low + 1)
-  // (amount * (10000 - edge)) / rangeSize
   return (amount * BigInt(10_000 - houseEdgeBps)) / rangeSize
 }
 
@@ -293,41 +296,29 @@ export async function simulatePlace(
   low: number,
   high: number,
   amountUSDCe: string,
-  _playerSeed: string, // not needed for prechecks
+  _playerSeed: string,
   _suggestedDelay = 0
 ): Promise<{ ok: true, variant: 'precheck-only' } | { ok: false, error: string }> {
-  // Read config and USDC state
   const [cfg, usdc] = await Promise.all([getConfig(), readUsdcState()])
 
-  // 1) paused?
   if (cfg.paused) return { ok: false, error: 'paused' }
-
-  // 2) range validity
   if (!(Number.isFinite(low) && Number.isFinite(high))) return { ok: false, error: 'bad range (NaN)' }
   if (high < low || high > 9999 || low < 0) return { ok: false, error: 'bad range' }
 
-  // 3) amount parse and caps
   let amt: bigint
-  try {
-    amt = parseUnits(amountUSDCe, cfg.usdcDecimals)
-  } catch {
-    return { ok: false, error: 'invalid amount string' }
-  }
+  try { amt = parseUnits(amountUSDCe, cfg.usdcDecimals) } catch { return { ok: false, error: 'invalid amount string' } }
   if (amt <= 0n) return { ok: false, error: 'amount must be > 0' }
   if (amt > cfg.maxBet) return { ok: false, error: 'amount > maxBet' }
 
-  // 4) profit cap: payout = amount * (10000-edge) / range
   const rangeSize = BigInt(high - low + 1)
-  const edge = BigInt(10_000 - cfg.houseEdgeBps) // e.g. 9900
+  const edge = BigInt(10_000 - cfg.houseEdgeBps)
   const payout = (amt * edge) / rangeSize
   const profit = payout > amt ? (payout - amt) : 0n
   if (profit > cfg.maxProfit) return { ok: false, error: 'profit exceeds maxProfit' }
 
-  // 5) balance & allowance
   if (usdc.balance < amt) return { ok: false, error: 'insufficient USDC balance' }
   if (usdc.allowance < amt) return { ok: false, error: 'insufficient allowance' }
 
-  // All front-end prechecks passed
   return { ok: true, variant: 'precheck-only' }
 }
 
@@ -338,9 +329,9 @@ export async function ensureAllowance(amountUSDCe: string) {
   const usdc = usdcWithSigner()
   const dec = await getUsdcDecimals()
   const amount = parseUnits(amountUSDCe, dec)
-  const current: bigint = await usdc.allowance(owner, CONTRACT_ADDRESS)
+  const current: bigint = await usdc.allowance(owner, gameAddress())
   if (current < amount) {
-    const tx = await usdc.approve(CONTRACT_ADDRESS, amount)
+    const tx = await usdc.approve(gameAddress(), amount)
     await tx.wait()
   }
 }
@@ -355,11 +346,8 @@ export async function placeBet(
   await ensureNetwork43111()
   await ensureAllowance(amountUSDCe)
 
-  // Front-end precheck only (never blocks on staticcall/transferFrom)
   const sim = await simulatePlace(low, high, amountUSDCe, playerSeed, suggestedDelay)
-  if (!sim.ok) {
-    throw new Error(`placeBet precheck failed: ${sim.error}`)
-  }
+  if (!sim.ok) throw new Error(`placeBet precheck failed: ${sim.error}`)
 
   const game = gameWithSigner()
   const dec = await getUsdcDecimals()

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Inter:wght@400;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -62,3 +64,225 @@ body { @apply bg-gray-950 text-gray-100; }
   border: 2px solid #6366f1;
   pointer-events: auto;
 }
+/* Hemi-ish dark theme */
+:root {
+  --bg: #0c0c0d;
+  --panel: #151518;
+  --muted: #9aa0a6;
+  --text: #e6e6e6;
+  --hemi: #ff6a00; /* orange accent */
+  --hemi-600: #ff7f26;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --ring: rgba(255,106,0,0.55);
+}
+
+body, .hemi-dark {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+.input {
+  background: #0f0f12;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  outline: none;
+}
+.input:focus {
+  border-color: var(--hemi);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.btn {
+  background: #1a1c22;
+  color: var(--text);
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: transform .05s ease-in-out, filter .15s ease;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(1px); }
+
+/* Primary call-to-action (Place/Settle/Mode) */
+.btn-primary {
+  background: linear-gradient(180deg, var(--hemi-600), var(--hemi));
+  color: #0b0b0c;
+  font-weight: 800;
+  border: none;
+}
+
+/* Secondary (simulate/refresh/less critical) */
+.btn-secondary {
+  background: #12141a;
+  color: #cbd5e1;
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.text-hemi { color: var(--hemi); }
+.ring-hemi\/60 { box-shadow: 0 0 0 3px var(--ring); }
+
+table thead th { font-weight: 600; }
+table tbody tr { border-color: rgba(255,255,255,0.06); }
+/* Banner */
+.banner-test {
+  @apply bg-red-700/90 text-white text-sm md:text-base px-4 py-3 rounded-lg shadow-md text-center;
+}
+
+/* Top bar logo subtle glow */
+@keyframes softglow {
+  0% { filter: drop-shadow(0 0 0px rgba(118,241,255,0.0)); transform: translateZ(0); }
+  50% { filter: drop-shadow(0 0 10px rgba(118,241,255,0.35)); }
+  100% { filter: drop-shadow(0 0 0px rgba(118,241,255,0.0)); }
+}
+.animate-softglow { animation: softglow 3.5s ease-in-out infinite; }
+
+/* Hero slider wrapper: draw attention + width */
+.hero-slider {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+@media (min-width: 768px) {
+  .hero-slider { width: 100%; }
+}
+.hero-slider > * {
+  width: 100%;
+  max-width: 850px;            /* roughly ~60% of the common content width */
+  transform: scale(1.02);
+  transition: transform .2s ease;
+}
+.hero-slider > *:hover { transform: scale(1.035); }
+
+/* Make native range inputs prettier globally in dark theme (won’t override your Slider component if custom) */
+input[type="range"] {
+  accent-color: #76f1ff;
+}
+
+/* Debug textarea-ish block */
+.debug-pre {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: .6rem .8rem;
+  color: #9aa3b2;
+  font-size: 12px;
+  margin-top: .5rem;
+  overflow: auto;
+  max-height: 160px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Recent bets table polish */
+.recent-table thead {
+  background: linear-gradient(90deg, rgba(118,241,255,0.08), rgba(90,123,255,0.08));
+}
+.recent-table thead th {
+  text-align: left;
+  font-weight: 600;
+  padding: .5rem .75rem;
+  color: #cbd5e1;
+}
+.recent-table tbody td {
+  padding: .5rem .75rem;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Minor button size variant used in table */
+.btn.btn-xs {
+  padding: .25rem .5rem;
+  font-size: 12px;
+}
+/* Sticky, glassy dapp-style top nav */
+ .topnav {
+  position: fixed;            /* ensure it stays pinned */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0 auto;
+  max-width: 56rem;           /* ~max-w-4xl (narrower app feel) */           /* ~max-w-5xl */
+  display: flex;
+  align-items: center;
+  justify-content: center;    /* center the inner wrapper */
+  padding: .6rem .9rem;
+  background: rgba(18, 22, 30, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px); /* Safari */
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: .875rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+
+/* inner flex row for nav, even if Tailwind utilities fail to load */
+.topnav .inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+/* logo sizing & inline alignment safeguards */
+.logo-mark { width: 30px; height: 30px; display: inline-block; vertical-align: middle; }
+.topnav svg { max-width: 30px; max-height: 30px; display: inline-block; vertical-align: middle; }
+
+/* provide body padding so content isn't hidden under fixed nav */
+.has-topnav { padding-top: 84px; }
+
+/* Tighten select height for nav */
+.topnav select.input {
+  min-height: 0;
+}
+
+/* Web3 title font */
+.title-web3 {
+  font-family: 'Orbitron', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* Small pill banner for TEST MODE in the nav */
+.badge-test {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .55rem;
+  border-radius: 9999px;
+  background: rgba(185, 28, 28, 0.9); /* red-700/90 */
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge-test b { font-weight: 700; }
+.badge-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .55rem;
+  border-radius: 9999px;
+  background: rgba(251, 191, 36, 0.90); /* amber-400/90 */
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #0b0b0c;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge-warn b { font-weight: 800; }
+/* Increase body padding to avoid nav overlap */
+.has-topnav { padding-top: 150px; }

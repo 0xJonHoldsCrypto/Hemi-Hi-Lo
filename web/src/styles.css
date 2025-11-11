@@ -1,4 +1,53 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Inter:wght@400;600&display=swap');
+
+/* --- Unified app layout --- */
+.app-shell {
+  /* mobile: full width, then gradually shrink; desktop ~50% */
+  width: 100%;
+  max-width: 1100px;           /* upper guard */
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (min-width: 768px) {
+  .app-shell { width: 80%; }
+}
+@media (min-width: 1024px) {
+  .app-shell { width: 60%; }
+}
+@media (min-width: 1280px) {
+  .app-shell { width: 50%; }
+}
+
+/* Single card-like module */
+.module {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  padding: 18px;
+}
+@media (min-width: 768px) { .module { padding: 22px; } }
+
+/* Internal section gaps + subtle dividers */
+.segment { margin-top: 14px; margin-bottom: 14px; }
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+  border: 0;
+  margin: 10px 0;
+}
+
+/* Headline row inside module */
+.module-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+/* Make tables match module padding visually */
+.module table { width: 100%; }
 
 @tailwind base;
 @tailwind components;
@@ -6,6 +55,7 @@
 
 
 :root { color-scheme: dark; }
+* { font-family: 'Orbitron', 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
 body { @apply bg-gray-950 text-gray-100; }
 .btn { @apply px-4 py-2 rounded-2xl bg-gray-800 hover:bg-gray-700 disabled:opacity-50; }
 .input { @apply px-3 py-2 rounded-xl bg-gray-900 border border-gray-700; }
@@ -29,7 +79,7 @@ body { @apply bg-gray-950 text-gray-100; }
   top: 8px; /* aligns with track top + padding */
   height: 6px;
   border-radius: 9999px;
-  background: #6366f1; /* indigo */
+  background: var(--hemi); /* orange accent */
   pointer-events: none;
 }
 
@@ -51,7 +101,7 @@ body { @apply bg-gray-950 text-gray-100; }
   width: 18px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #6366f1;
+  border: 2px solid var(--hemi);
   pointer-events: auto; /* re-enable interaction on the actual thumb */
   position: relative;
 }
@@ -61,7 +111,7 @@ body { @apply bg-gray-950 text-gray-100; }
   width: 18px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #6366f1;
+  border: 2px solid var(--hemi);
   pointer-events: auto;
 }
 /* Hemi-ish dark theme */
@@ -159,18 +209,10 @@ table tbody tr { border-color: rgba(255,255,255,0.06); }
 @media (min-width: 768px) {
   .hero-slider { width: 100%; }
 }
-.hero-slider > * {
-  width: 100%;
-  max-width: 850px;            /* roughly ~60% of the common content width */
-  transform: scale(1.02);
-  transition: transform .2s ease;
-}
-.hero-slider > *:hover { transform: scale(1.035); }
+.hero-slider > * { width: 100%; max-width: 850px; }
 
 /* Make native range inputs prettier globally in dark theme (won’t override your Slider component if custom) */
-input[type="range"] {
-  accent-color: #76f1ff;
-}
+input[type="range"] { accent-color: var(--hemi); }
 
 /* Debug textarea-ish block */
 .debug-pre {
@@ -232,10 +274,30 @@ input[type="range"] {
 .topnav .inner {
   width: 100%;
   display: flex;
+  flex-direction: column;    /* two rows: top (left/right) + bottom (centered badges) */
+  gap: .45rem;
+}
+
+.nav-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
+  width: 100%;
 }
+.nav-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* center the badges line */
+  gap: .5rem;
+  width: 100%;
+}
+
+.nav-left, .nav-center, .nav-right { display:flex; align-items:center; gap:.5rem; }
+.nav-left { min-width: 0; }
+.nav-center { flex: 1; justify-content: center; }
+.nav-right { justify-content: flex-end; }
+.nav-gap { margin-right: .5rem; }
 
 /* logo sizing & inline alignment safeguards */
 .logo-mark { width: 30px; height: 30px; display: inline-block; vertical-align: middle; }
@@ -286,3 +348,281 @@ input[type="range"] {
 .badge-warn b { font-weight: 800; }
 /* Increase body padding to avoid nav overlap */
 .has-topnav { padding-top: 150px; }
+
+
+/* --- Amount row accent styles --- */
+.amount-accent {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .6rem .8rem;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(255,106,0,0.08), rgba(255,127,38,0.06));
+  border: 1px solid rgba(255,106,0,0.18);
+  border-radius: 12px;
+  padding: .75rem .9rem;
+  box-shadow: inset 0 0 0 1px rgba(255,106,0,0.08);
+}
+.amount-accent .label-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .28rem .55rem;
+  border-radius: 9999px;
+  background: #0f1117;
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #ffd6bf;
+  font-weight: 700;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+@media (min-width: 640px) {
+  .amount-accent { grid-template-columns: auto 1fr; }
+}
+
+/* --- Spacing tweaks for slider/mode/labels --- */
+.gap-after-slider { margin-top: .5rem; }
+.mode-buttons { gap: .5rem; }
+.gap-after-modes { margin-top: .5rem; }
+
+
+/* --- Center helpers for module content --- */
+.center-wrap {
+  max-width: 860px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.centered {
+  text-align: center;
+}
+.centered .input {
+  text-align: center;
+}
+.centered .btn {
+  justify-content: center;
+}
+/* Keep tables left-aligned for readability */
+.centered table {
+  text-align: left;
+}
+
+/* --- Site footer --- */
+.site-footer {
+  margin-top: 12px;
+  padding: 18px 0 26px;
+  color: var(--muted);
+}
+.site-footer .row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 12px;
+}
+.site-footer .brand {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--text);
+  margin-bottom: .25rem;
+}
+.site-footer .tagline {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #9aa3b2;
+  margin: .25rem 0 .5rem;
+}
+.site-footer .copy {
+  font-size: 11px;
+  color: #808799;
+}
+.site-footer .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .75rem;
+}
+.site-footer .links a {
+  color: #cbd5e1;
+  font-size: 13px;
+  text-decoration: none;
+  padding: .25rem .5rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 9999px;
+  background: #0f1117;
+  transition: filter .15s ease;
+}
+ .site-footer .links a:hover {
+  filter: brightness(1.15);
+}
+
+/* Footer icon links */
+.site-footer .icons {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.site-footer .icons a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #0f1117;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #cbd5e1;
+  transition: transform .12s ease, filter .15s ease;
+}
+.site-footer .icons a:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+.site-footer .icons svg {
+  width: 20px;
+  height: 20px;
+}
+@media (max-width: 640px) {
+  .site-footer .row { flex-direction: column; }
+  .site-footer { padding-bottom: 20px; }
+}
+/* --- FOCAL SLIDER --- */
+.focal-slider {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.focal-slider .focal-slider-inner {
+  width: 100%;
+  min-width: 320px;
+  max-width: 900px;
+  background: linear-gradient(180deg, rgba(255,106,0,0.08), rgba(255,127,38,0.08));
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 14px 14px 10px;
+  position: relative;
+  box-shadow: 0 12px 30px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,106,0,0.10);
+  overflow: hidden;
+}
+
+.focal-slider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+.focal-slider-head .label {
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity: .9;
+}
+.percent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .55rem;
+  border-radius: 9999px;
+  background: #0f1117;
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #e5e7eb;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255,106,0,0.10);
+}
+
+.focal-slider-body {
+  position: relative;
+  padding: 10px 10px 6px;
+  background: radial-gradient(1200px 120px at 50% -40%, rgba(118,241,255,0.12), transparent 70%);
+  border-radius: 12px;
+}
+
+/* animated glow under the slider track */
+.focal-slider-glow {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 6px;
+  height: 10px;
+  border-radius: 9999px;
+background: linear-gradient(90deg, rgba(255,106,0,0.45), rgba(255,127,38,0.45), rgba(255,106,0,0.45));  filter: blur(10px);
+  opacity: .45;
+  animation: shimmer 3.2s linear infinite;
+  background-size: 200% 100%;
+}
+
+.focal-slider-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 0;
+  font-size: 11px;
+  color: #9aa3b2;
+}
+
+/* addictive-style animations on interaction */
+@keyframes shimmer {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+@keyframes thumbPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(118,241,255,0.35); }
+  70% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(118,241,255,0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(118,241,255,0); }
+}
+
+/* Enhance the generic range input when used inside focal slider */
+.focal-slider input[type="range"]::-webkit-slider-thumb {
+  animation: thumbPulse 1.6s ease-in-out infinite;
+}
+.focal-slider input[type="range"]:active::-webkit-slider-thumb {
+  animation-duration: .9s;
+}
+.focal-slider input[type="range"]::-moz-range-thumb {
+  animation: thumbPulse 1.6s ease-in-out infinite;
+}
+.focal-slider input[type="range"]:active::-moz-range-thumb {
+  animation-duration: .9s;
+}
+
+@media (max-width: 768px) {
+  .focal-slider .focal-slider-inner { width: 100%; }
+}
+/* Make single & dual sliders share the same orange thumb */
+.focal-slider-body input[type="range"]::-webkit-slider-thumb {
+  background: #fff;
+  border: 2px solid var(--hemi);
+}
+.focal-slider-body input[type="range"]::-moz-range-thumb {
+  background: #fff;
+  border: 2px solid var(--hemi);
+}
+
+/* Orange pulse */
+@keyframes thumbPulse {
+  0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(255,106,0,0.35); }
+  70%  { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(255,106,0,0); }
+  100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(255,106,0,0); }
+}
+
+@keyframes bumpPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+.bump .focal-slider-inner { animation: bumpPop 220ms ease-out; }
+
+.confetti-p {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  animation: confettiFly 900ms ease-out forwards;
+  box-shadow: 0 0 6px rgba(0,0,0,.25);
+}
+@keyframes confettiFly {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to   { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(.8); }
+}

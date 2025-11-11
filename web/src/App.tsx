@@ -66,6 +66,29 @@ function LogoMark(
   )
 }
 
+/* ---------- Social Icons ---------- */
+function GitHubIcon({ size = 22, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden="true" fill="currentColor">
+      <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.42c.58.11.78-.25.78-.56l-.02-2.02c-3.17.69-3.84-1.53-3.84-1.53-.53-1.35-1.3-1.71-1.3-1.71-1.07-.73.08-.72.08-.72 1.18.08 1.8 1.22 1.8 1.22 1.05 1.8 2.76 1.28 3.43.98.11-.77.41-1.28.75-1.57-2.53-.29-5.2-1.27-5.2-5.64 0-1.25.45-2.27 1.2-3.07-.12-.29-.52-1.45.11-3.02 0 0 .98-.31 3.2 1.17a11.1 11.1 0 0 1 5.82 0c2.22-1.48 3.2-1.17 3.2-1.17.63 1.57.23 2.73.11 3.02.75.8 1.2 1.82 1.2 3.07 0 4.38-2.67 5.35-5.22 5.63.42.36.8 1.08.8 2.18l-.02 3.23c0 .31.2.68.79.56A11.5 11.5 0 0 0 12 .5Z"/>
+    </svg>
+  )
+}
+function DiscordIcon({ size = 22, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden="true" fill="currentColor">
+      <path d="M20.317 4.37A19.79 19.79 0 0 0 16.558 3c-.2.35-.43.82-.59 1.2a18.27 18.27 0 0 0-7.936 0c-.16-.38-.39-.85-.59-1.2-1.32.24-2.62.64-3.76 1.37C.533 9.24-.32 14 0 18.71a19.96 19.96 0 0 0 6.062 3.02c.47-.64.89-1.33 1.25-2.05-.69-.26-1.35-.6-1.96-.99.17-.12.34-.25.5-.38 3.77 1.77 7.86 1.77 11.6 0 .17.13.34.26.5.38-.61.4-1.27.73-1.96.99.36.72.78 1.41 1.25 2.05a19.96 19.96 0 0 0 6.062-3.02c.27-3.76-.46-8.49-3.88-14.34ZM8.51 15.28c-1.01 0-1.84-.93-1.84-2.07 0-1.13.82-2.06 1.84-2.06 1.03 0 1.85.93 1.84 2.06 0 1.14-.82 2.07-1.84 2.07Zm6.98 0c-1.01 0-1.84-.93-1.84-2.07 0-1.13.82-2.06 1.84-2.06 1.03 0 1.85.93 1.84 2.06 0 1.14-.82 2.07-1.84 2.07Z"/>
+    </svg>
+  )
+}
+function XIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden="true" fill="currentColor">
+      <path d="M18.244 2H21l-6.61 7.548L22 22h-6.828l-4.73-6.18L5.1 22H2.343l7.06-8.067L2 2h6.914l4.308 5.73L18.244 2Zm-2.39 18h1.32L8.22 4h-1.4l9.034 16Z"/>
+    </svg>
+  )
+}
+
 /* ---------- Local seed vault ---------- */
 const SEED_VAULT_KEY = 'hilo.seedsById'
 function loadSeedVault(): Record<string, string> {
@@ -107,7 +130,7 @@ function App() {
 
   /* ---------- Wager inputs ---------- */
   const [percent, setPercent] = useState(50)
-  const [mode, setMode] = useState<'low' | 'high' | 'custom'>('low')
+  const [mode, setMode] = useState<'low' | 'high' | 'custom'>('custom')
   const [amount, setAmount] = useState('1')
   const [playerSeed, setPlayerSeed] = useState('')
   const [betId, setBetId] = useState('')
@@ -182,6 +205,11 @@ function App() {
   /* ---------- btcDelay readout ---------- */
   const [btcDelayNow, setBtcDelayNow] = useState<number | null>(null)
 
+  // --- UI effects & preview state ---
+  const [houseEdgeBps, setHouseEdgeBps] = useState<number>(100)
+  const lastThreshold = useRef<number | null>(null)
+  const [bumpKey, setBumpKey] = useState<number>(0) // toggles bump animation
+
   async function refreshStatus(idOverride?: number) {
     try {
       setLastError('')
@@ -230,6 +258,7 @@ function App() {
       await refreshUSDC(account || undefined)
       const cfg = await getConfig()
       setBtcDelayNow(cfg.btcDelay)
+      setHouseEdgeBps(cfg.houseEdgeBps)
 
       const seed = playerSeed.trim() || randomSeedHex()
       if (!playerSeed.trim()) setPlayerSeed(seed)
@@ -385,280 +414,385 @@ function App() {
     const h = window.setInterval(() => refreshUSDC(account), 20_000)
     return () => clearInterval(h)
   }, [account])
+  useEffect(() => {
+    getConfig().then(c => setHouseEdgeBps(c.houseEdgeBps)).catch(() => {})
+  }, [])
+
+  const year = new Date().getFullYear()
+
+  // ---- payout preview & UI helpers ----
+  function computePayoutPreview() {
+    const amt = Number((amount || '0').trim())
+    if (!Number.isFinite(amt) || amt <= 0) return { payout: '—', winPct: '—' }
+    const rangeSize = Math.max(1, high - low + 1)           // 1..10000
+    const edge = Math.max(0, 10000 - (houseEdgeBps || 0))   // bps complement
+    const payout = (amt * edge) / rangeSize / 100           // edge is in bps
+    const winPct = ((rangeSize / 10000) * 100).toFixed(2) + '%'
+    return { payout: payout.toFixed(4), winPct }
+  }
+  const { payout: payoutPreview, winPct } = computePayoutPreview()
+
+  function currentThreshold() {
+    // For custom mode, probability% = rangeSize/100 ; otherwise, the single slider %.
+    const p = (mode === 'custom') ? ((high - low + 1) / 100) : percent
+    const pivots = [25, 50, 75]
+    let hit: number | null = null
+    for (const t of pivots) {
+      if (Math.abs(p - t) < 0.8) { hit = t; break }
+    }
+    return hit
+  }
+
+  function burstConfetti(containerId: string) {
+    const root = document.getElementById(containerId)
+    if (!root) return
+    const N = 24
+    for (let i = 0; i < N; i++) {
+      const p = document.createElement('span')
+      const angle = (i / N) * 2 * Math.PI
+      const dx = Math.cos(angle), dy = Math.sin(angle)
+      const dist = 60 + Math.random() * 40
+      p.className = 'confetti-p'
+      p.style.setProperty('--tx', `${dx * dist}px`)
+      p.style.setProperty('--ty', `${dy * dist}px`)
+      p.style.left = '50%'
+      p.style.top = '50%'
+      p.style.background = `hsl(${Math.floor(Math.random()*20)+25}, 95%, 55%)`
+      root.appendChild(p)
+      setTimeout(() => p.remove(), 900)
+    }
+  }
+
+  function maybeBumpAndConfetti(containerId: string) {
+    const hit = currentThreshold()
+    if (hit != null && hit !== lastThreshold.current) {
+      lastThreshold.current = hit
+      setBumpKey(Date.now())
+      burstConfetti(containerId)
+    }
+  }
 
 return (
-<div className="max-w-4xl mx-auto p-4 md:p-6 has-topnav space-y-6 hemi-dark">      {/* Sticky Dapp Top-Nav */}
+<div className="mx-auto p-4 md:p-6 has-topnav hemi-dark">
+      {/* Sticky Dapp Top-Nav */}
       <nav role="navigation" className="topnav">
         <div className="inner">
-          {/* Left: Logo + Title + inline test badge */}
-          <div className="flex items-center gap-3 min-w-0">
-            <LogoMark size={30} className="logo-mark mr-1" />
-            <div className="min-w-0 leading-tight flex items-center gap-2">
+          <div className="nav-top">
+            <div className="nav-left">
+              <LogoMark size={30} className="logo-mark mr-1" />
               <h1 className="title-web3 text-base md:text-lg font-semibold text-hemi leading-tight truncate">
-                HEMI Hi-Lo: Bitcoin-backed RNG
+                HEMI Hi‑Lo: Bitcoin‑backed RNG
               </h1>
-              <span className="badge-test">⚠️ <b>TEST MODE</b></span><span className="badge-warn">Contracts/feeds may change — <b>funds at risk</b></span>
+            </div>
+            <div className="nav-right">
+              <select
+                className="input !py-1.5 !px-2 text-xs nav-gap"
+                value={net.key}
+                onChange={(e) => {
+                  const k = e.target.value as 'mainnet' | 'testnet'
+                  switchNet(k === 'mainnet' ? MAINNET : TESTNET)
+                }}
+                title="Network"
+              >
+                <option value="mainnet">Mainnet</option>
+                <option value="testnet">Testnet</option>
+              </select>
+              <label className="hidden sm:flex items-center text-xs text-gray-400 nav-gap">
+                <input
+                  type="checkbox"
+                  checked={autoSettle}
+                  onChange={e => setAutoSettle(e.target.checked)}
+                />
+                <span className="ml-1">Auto‑settle</span>
+              </label>
+              {account ? (
+                <span
+                  className="text-[11px] md:text-xs text-green-400 truncate max-w-[160px] md:max-w-[220px]"
+                  title={account}
+                >
+                  {account}
+                </span>
+              ) : (
+                <button className="btn btn-primary text-xs px-3 py-1" onClick={onConnect}>
+                  {typeof (window as any).ethereum !== 'undefined' ? 'Connect Wallet' : 'No Wallet'}
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Right: Network + Auto-settle + Wallet */}
-          <div className="flex items-center gap-2">
-            <select
-              className="input !py-1.5 !px-2 text-xs"
-              value={net.key}
-              onChange={(e) => {
-                const k = e.target.value as 'mainnet' | 'testnet'
-                switchNet(k === 'mainnet' ? MAINNET : TESTNET)
-              }}
-              title="Network"
-            >
-              <option value="mainnet">Mainnet</option>
-              <option value="testnet">Testnet</option>
-            </select>
-
-            <label className="hidden sm:flex items-center gap-2 text-xs text-gray-400">
-              <input
-                type="checkbox"
-                checked={autoSettle}
-                onChange={e => setAutoSettle(e.target.checked)}
-              />
-              Auto-settle
-            </label>
-
-            {account ? (
-              <span
-                className="text-[11px] md:text-xs text-green-400 truncate max-w-[160px] md:max-w-[220px]"
-                title={account}
-              >
-                {account}
-              </span>
-            ) : (
-              <button className="btn btn-primary text-xs px-3 py-1" onClick={onConnect}>
-                {typeof (window as any).ethereum !== 'undefined' ? 'Connect Wallet' : 'No Wallet'}
-              </button>
-            )}
+          <div className="nav-bottom">
+            <span className="badge-test">⚠️ <b>TEST MODE</b></span>
+            <span className="badge-warn">Contracts/feeds may change — <b>funds at risk</b></span>
           </div>
         </div>
       </nav>
 
+      {/* Unified app shell */}
+      <main className="app-shell space-y-4">
+        {/* Single-module container with internal segments */}
+        <section className="module">
+          {/* Segment 1: Mode & Slider */}
+          <div className="segment centered">
+            <div className="center-wrap">
+              {/* FOCAL SLIDER ON TOP */}
+              <div className="focal-slider mx-auto">
+                <div className={`focal-slider-inner ${bumpKey ? 'bump' : ''}`}>
+                  <div className="focal-slider-head">
+                    <span className="label">Range Selector</span>
+                    <span className="percent-badge">
+                      {mode === 'custom'
+                        ? `${customLow}–${customHigh}`
+                        : `${percent}%`}
+                    </span>
+                  </div>
 
-      {/* Hero: slider + quick mode */}
-      <section className="card p-5">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex gap-2">
-            <button className={`btn btn-primary ${mode === 'low' ? 'ring-2 ring-hemi/60' : ''}`} onClick={() => setMode('low')}>Bottom</button>
-            <button className={`btn btn-primary ${mode === 'high' ? 'ring-2 ring-hemi/60' : ''}`} onClick={() => setMode('high')}>Top</button>
-            <button className={`btn btn-primary ${mode === 'custom' ? 'ring-2 ring-hemi/60' : ''}`} onClick={() => setMode('custom')}>Custom</button>
-          </div>
-
-          <div className="text-sm text-gray-300">
-            Range: <b>{low}</b>–<b>{high}</b> (size {high - low + 1}) • Multiplier ≈ <b>{impliedMultiplier}×</b>
-          </div>
-        </div>
-
-        {mode !== 'custom' && (
-          <div className="mt-4 flex justify-center">
-            <div className="w-full md:w-3/5">
-              {/* live percentage readout */}
-              <div className="flex items-center justify-between text-xs text-gray-400 mb-2 px-1">
-                <span>Bottom ↔ Top</span>
-                <span className="text-hemi font-medium">{percent}% range</span>
+                  {/* Show single slider in low/high mode, dual in custom */}
+                  {mode !== 'custom' ? (
+                    <div className="focal-slider-body">
+                      <Slider
+                        value={percent}
+                        onChange={(v: number) => {
+                          setPercent(v)
+                          maybeBumpAndConfetti('focal-confetti')
+                        }}
+                      />
+                      <div className="focal-slider-glow" aria-hidden="true"></div>
+                      <div id="focal-confetti" style={{position:'absolute', inset:0, pointerEvents:'none'}} />
+                    </div>
+                  ) : (
+                    <div className="focal-slider-body">
+                      <RangeSlider
+                        min={0}
+                        max={9999}
+                        low={customLow}
+                        high={customHigh}
+                        onChange={(lo, hi) => {
+                          const clampedLo = Math.max(0, Math.min(9999, lo))
+                          const clampedHi = Math.max(0, Math.min(9999, hi))
+                          setCustomLow(Math.min(clampedLo, clampedHi))
+                          setCustomHigh(Math.max(clampedLo, clampedHi))
+                          maybeBumpAndConfetti('focal-confetti')
+                        }}
+                      />
+                      <div className="focal-slider-glow" aria-hidden="true"></div>
+                      <div id="focal-confetti" style={{position:'absolute', inset:0, pointerEvents:'none'}} />
+                    </div>
+                  )}
+                  <div className="focal-slider-foot">
+                    <span className="hint-left">Bottom</span>
+                    <span className="hint-right">Top</span>
+                  </div>
+                  <div className="text-sm text-gray-300 mt-2 text-center">
+                    Potential payout: <b>{payoutPreview}</b> USDC • Win chance: <b>{winPct}</b>
+                  </div>
+                </div>
               </div>
-              {/* glow wrapper */}
-              <div className="rounded-xl p-3 bg-gradient-to-r from-[#76f1ff1a] to-[#5a7bff1a] ring-1 ring-hemi/20 shadow-[0_0_24px_rgba(90,123,255,0.25)] animate-pulse">
-                <Slider value={percent} onChange={setPercent} />
+
+              <div className="gap-after-slider" />
+              {/* MODE BUTTONS + QUICK STATS */}
+              <div className="mt-4 flex items-center justify-center flex-wrap mode-buttons">
+                <div className="flex mode-buttons">
+                  <button
+                    className={`btn btn-primary ${mode === 'low' ? 'ring-2 ring-hemi/60' : ''}`}
+                    onClick={() => setMode('low')}
+                  >Bottom</button>
+                  <button
+                    className={`btn btn-primary ${mode === 'high' ? 'ring-2 ring-hemi/60' : ''}`}
+                    onClick={() => setMode('high')}
+                  >Top</button>
+                  <button
+                    className={`btn btn-primary ${mode === 'custom' ? 'ring-2 ring-hemi/60' : ''}`}
+                    onClick={() => setMode('custom')}
+                  >Custom</button>
+                </div>
+                <div className="gap-after-modes" />
+                <div className="text-sm text-gray-300">
+                  Range: <b>{low}</b>–<b>{high}</b> (size {high - low + 1}) • Multiplier ≈ <b>{impliedMultiplier}×</b>
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        {mode === 'custom' && (
-          <div className="mt-4 space-y-3">
-            <RangeSlider
-              min={0}
-              max={9999}
-              low={customLow}
-              high={customHigh}
-              onChange={(lo, hi) => {
-                const clampedLo = Math.max(0, Math.min(9999, lo))
-                const clampedHi = Math.max(0, Math.min(9999, hi))
-                setCustomLow(Math.min(clampedLo, clampedHi))
-                setCustomHigh(Math.max(clampedLo, clampedHi))
-              }}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-sm text-gray-400">Low (0..9999)</label>
-                <input
-                  className="input w-full"
-                  type="number"
-                  min={0}
-                  max={9999}
-                  value={customLow}
-                  onChange={e => {
-                    const v = parseInt(e.target.value || '0', 10)
-                    setCustomLow(Math.max(0, Math.min(9999, Math.min(v, customHigh))))
-                  }}
-                />
+          <hr className="divider" />
+
+          {/* Segment 2: Amount & Place */}
+          <div className="segment centered">
+            <div className="center-wrap grid md:grid-cols-2 gap-6 justify-items-center">
+              <div className="space-y-3 w-full max-w-sm">
+                <div className="amount-accent">
+                  <span className="label-pill">Amount (USDC.e)</span>
+                  <input className="input w-full" value={amount} onChange={e => setAmount(e.target.value)} />
+                </div>
+                <div className="text-xs text-gray-500">
+                  Bal: {formatUnits(usdcBal, usdcDecimals)} • Allow: {formatUnits(usdcAllowance, usdcDecimals)}
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Tip: amount ≤ maxBet & profit ≤ maxProfit. Use “Simulate” to see the exact reason if blocked.
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button className="btn btn-secondary flex-1" onClick={onSimulatePlace}>Simulate</button>
+                  <button className="btn btn-primary flex-1" onClick={onPlace}>Place Bet</button>
+                </div>
               </div>
-              <div>
-                <label className="block mb-1 text-sm text-gray-400">High (0..9999)</label>
-                <input
-                  className="input w-full"
-                  type="number"
-                  min={0}
-                  max={9999}
-                  value={customHigh}
-                  onChange={e => {
-                    const v = parseInt(e.target.value || '0', 10)
-                    setCustomHigh(Math.max(0, Math.min(9999, Math.max(v, customLow))))
-                  }}
-                />
+
+              <div className="space-y-3 w-full max-w-sm">
+                <label className="block mb-1 text-sm text-gray-400">Player seed (optional)</label>
+                <input className="input w-full" placeholder="(auto-generated if empty)" value={playerSeed} onChange={e => setPlayerSeed(e.target.value)} />
+                <div className="text-xs text-gray-500">btcDelay now: {btcDelayNow ?? '—'}</div>
+
+                <div className="grid grid-cols-[1fr_auto] gap-3 items-end pt-2">
+                  <div>
+                    <label className="block mb-1 text-sm text-gray-400">Bet ID</label>
+                    <input className="input w-full" placeholder="(auto)" value={betId} onChange={e => setBetId(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="btn" onClick={() => refreshStatus()}>Refresh</button>
+                    <button className="btn btn-secondary" onClick={onSimulateSettle}>Simulate</button>
+                  </div>
+                </div>
+                <button className="btn btn-primary" onClick={onSettle} disabled={!ready}>Settle Bet</button>
               </div>
             </div>
           </div>
-        )}
-      </section>
 
-      {/* Amount & place */}
-      <section className="grid md:grid-cols-2 gap-4">
-        <div className="card space-y-3">
-          <label className="block mb-1 text-sm text-gray-400">Amount (USDC.e)</label>
-          <input className="input w-full" value={amount} onChange={e => setAmount(e.target.value)} />
-          <div className="text-xs text-gray-500">
-            Bal: {formatUnits(usdcBal, usdcDecimals)} • Allow: {formatUnits(usdcAllowance, usdcDecimals)}
-          </div>
-          <div className="text-[11px] text-gray-500">
-            Tip: amount ≤ maxBet & profit ≤ maxProfit. Use “Simulate” to see the exact reason if blocked.
-          </div>
-          <div className="flex gap-2 pt-1">
-            <button className="btn btn-secondary flex-1" onClick={onSimulatePlace}>Simulate</button>
-            <button className="btn btn-primary flex-1" onClick={onPlace}>Place Bet</button>
-          </div>
-        </div>
+          <hr className="divider" />
 
-        <div className="card space-y-3">
-          <label className="block mb-1 text-sm text-gray-400">Player seed (optional)</label>
-          <input className="input w-full" placeholder="(auto-generated if empty)" value={playerSeed} onChange={e => setPlayerSeed(e.target.value)} />
-          <div className="text-xs text-gray-500">
-            btcDelay now: {btcDelayNow ?? '—'}
-          </div>
-
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-end pt-2">
-            <div>
-              <label className="block mb-1 text-sm text-gray-400">Bet ID</label>
-              <input className="input w-full" placeholder="(auto)" value={betId} onChange={e => setBetId(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <button className="btn" onClick={() => refreshStatus()}>Refresh</button>
-              <button className="btn btn-secondary" onClick={onSimulateSettle}>Simulate</button>
+          {/* Segment 3: Status & Debug */}
+          <div className="segment centered">
+            <div className="center-wrap">
+              <details open>
+                <summary className="cursor-pointer text-sm text-gray-300 border-b border-white/5 pb-2">Status & Debug</summary>
+                <div className="mt-2 text-sm text-gray-400 grid grid-cols-2 gap-2">
+                  <div>HBK latest height: <b>{hbkHeight ?? '—'}</b></div>
+                  <div>Bet target height: <b>{targetHeight ?? '—'}</b></div>
+                  <div>Target header present: <b>{targetHeaderPresent}</b></div>
+                  <div>Status: <b className={ready ? 'text-green-400' : 'text-amber-400'}>{ready ? 'Ready to settle' : 'Waiting for header'}</b></div>
+                </div>
+                {lastError && <div className="text-rose-400 text-xs mt-2 break-all">debug: {lastError}</div>}
+                <pre className="debug-pre">{debugLine}</pre>
+              </details>
             </div>
           </div>
-          <button className="btn btn-primary" onClick={onSettle} disabled={!ready}>Settle Bet</button>
-        </div>
-      </section>
 
-      {/* Status & Debug */}
-      <details className="card" open>
-        <summary className="cursor-pointer text-sm text-gray-300 border-b border-white/5 pb-2">Status & Debug</summary>
-        <div className="mt-2 text-sm text-gray-400 grid grid-cols-2 gap-2">
-          <div>HBK latest height: <b>{hbkHeight ?? '—'}</b></div>
-          <div>Bet target height: <b>{targetHeight ?? '—'}</b></div>
-          <div>Target header present: <b>{targetHeaderPresent}</b></div>
-          <div>Status: <b className={ready ? 'text-green-400' : 'text-amber-400'}>{ready ? 'Ready to settle' : 'Waiting for header'}</b></div>
-        </div>
-        {lastError && <div className="text-rose-400 text-xs mt-2 break-all">debug: {lastError}</div>}
-        <pre className="debug-pre">{debugLine}</pre>
-      </details>
+          {/* Admin (owner-only) */}
+          {isOwner && (
+            <>
+              <hr className="divider" />
+              <div className="segment centered">
+                <div className="center-wrap">
+                  <div className="text-sm text-gray-400">
+                    <div>Owner: <b className="break-all">{ownerAddr}</b></div>
+                    <div>Current btcDelay: <b>{currentDelay}</b></div>
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto] gap-3 items-end mt-3">
+                    <div>
+                      <label className="block mb-1 text-sm text-gray-400">Set btcDelay</label>
+                      <input
+                        className="input w-full"
+                        type="number"
+                        min={0}
+                        value={delayInput}
+                        onChange={e => setDelayInput(e.target.value)}
+                      />
+                    </div>
+                    <button className="btn" onClick={onSetDelay}>Set</button>
+                  </div>
+                  <button className="btn mt-2" onClick={() => { setDelayInput('1'); }}>Quick set to 1 (fast local test)</button>
+                </div>
+              </div>
+            </>
+          )}
 
-      {/* Admin (owner-only) */}
-      {isOwner && (
-        <section className="card space-y-3">
-          <div className="text-sm text-gray-400">
-            <div>Owner: <b className="break-all">{ownerAddr}</b></div>
-            <div>Current btcDelay: <b>{currentDelay}</b></div>
-          </div>
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
-            <div>
-              <label className="block mb-1 text-sm text-gray-400">Set btcDelay</label>
-              <input
-                className="input w-full"
-                type="number"
-                min={0}
-                value={delayInput}
-                onChange={e => setDelayInput(e.target.value)}
-              />
+          {/* Recent bets */}
+          <hr className="divider" />
+          <div className="segment centered">
+            <div className="center-wrap">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold">Your Recent Bets</h2>
+                <button className="btn" onClick={() => refreshHistory(account)}>Refresh</button>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-white/5 mt-2">
+                <table className="text-sm w-full recent-table">
+                  <thead className="text-gray-300/90">
+                    <tr>
+                      <th>ID</th>
+                      <th>Range</th>
+                      <th>Wager</th>
+                      <th>BTC Height</th>
+                      <th>Roll</th>
+                      <th>Result</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map(b => {
+                      const btcH = b.btcHeight != null ? Number(b.btcHeight) : 0
+                      const isReady = hbkHeight != null && btcH > 0 && hbkHeight >= btcH
+                      const result = b.settled ? (b.won ? 'WIN' : 'LOSE') : (isReady ? 'Ready' : 'Pending')
+                      return (
+                        <tr key={b.id}>
+                          <td>{b.id}</td>
+                          <td>{b.low}–{b.high}</td>
+                          <td>{String(b.wager)}</td>
+                          <td>{b.btcHeight ?? '—'}</td>
+                          <td>{b.settled ? b.roll : '—'}</td>
+                          <td className={`${b.settled ? (b.won ? 'text-green-400' : 'text-rose-400') : (isReady ? 'text-green-300' : 'text-amber-300')}`}>
+                            {result}
+                          </td>
+                          <td>
+                            {!b.settled && (
+                              <button
+                                className="btn btn-xs btn-primary"
+                                onClick={async () => {
+                                  setBetId(String(b.id))
+                                  await refreshStatus(b.id)
+                                  const seed = getSeedFor(b.id) || playerSeed
+                                  if (seed) setPlayerSeed(seed)
+                                  if (isReady && seed) await onSettle()
+                                }}
+                              >
+                                Settle
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {history.length === 0 && (
+                      <tr><td colSpan={7} className="text-gray-500 py-2">No recent bets for this wallet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <button className="btn" onClick={onSetDelay}>Set</button>
           </div>
-          <button className="btn" onClick={() => { setDelayInput('1'); }}>Quick set to 1 (fast local test)</button>
         </section>
-      )}
 
-      {/* Recent bets */}
-      <section className="card space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Your Recent Bets</h2>
-          <button className="btn" onClick={() => refreshHistory(account)}>Refresh</button>
-        </div>
-        <div className="overflow-x-auto rounded-lg border border-white/5">
-          <table className="text-sm w-full recent-table">
-            <thead className="text-gray-300/90">
-              <tr>
-                <th>ID</th>
-                <th>Range</th>
-                <th>Wager</th>
-                <th>BTC Height</th>
-                <th>Roll</th>
-                <th>Result</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map(b => {
-                const btcH = b.btcHeight != null ? Number(b.btcHeight) : 0
-                const isReady = hbkHeight != null && btcH > 0 && hbkHeight >= btcH
-                const result = b.settled ? (b.won ? 'WIN' : 'LOSE') : (isReady ? 'Ready' : 'Pending')
-                return (
-                  <tr key={b.id}>
-                    <td>{b.id}</td>
-                    <td>{b.low}–{b.high}</td>
-                    <td>{String(b.wager)}</td>
-                    <td>{b.btcHeight ?? '—'}</td>
-                    <td>{b.settled ? b.roll : '—'}</td>
-                    <td className={`${b.settled ? (b.won ? 'text-green-400' : 'text-rose-400') : (isReady ? 'text-green-300' : 'text-amber-300')}`}>
-                      {result}
-                    </td>
-                    <td>
-                      {!b.settled && (
-                        <button
-                          className="btn btn-xs btn-primary"
-                          onClick={async () => {
-                            setBetId(String(b.id))
-                            await refreshStatus(b.id)
-                            const seed = getSeedFor(b.id) || playerSeed
-                            if (seed) setPlayerSeed(seed)
-                            if (isReady && seed) await onSettle()
-                          }}
-                        >
-                          Settle
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-              {history.length === 0 && (
-                <tr><td colSpan={7} className="text-gray-500 py-2">No recent bets for this wallet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <footer className="text-[11px] text-gray-500 text-center">
-        Provably-fair: keccak256(BTC header @ height, serverSeedReveal, playerSeed, betId). • Built on Hemi.
-      </footer>
+        <footer className="site-footer app-shell" role="contentinfo">
+          <div className="row">
+            <div className="left">
+              <div className="brand">
+                <LogoMark size={18} className="mr-2" />
+                <span className="title-web3">HEMI Hi‑Lo</span>
+              </div>
+              <p className="tagline">
+                Provably‑fair: keccak256(BTC header @ height, serverSeedReveal, playerSeed, betId). • Built on Hemi.
+              </p>
+              <p className="copy">© {year} HEMI Hi‑Lo. All rights reserved.</p>
+            </div>
+            <div className="right icons" aria-label="Social links">
+              <a href="https://github.com/0xJonHoldsCrypto/Hemi-Hi-Lo" target="_blank" rel="noreferrer" aria-label="GitHub">
+                <GitHubIcon />
+              </a>
+              <a href="https://discord.gg/" target="_blank" rel="noreferrer" aria-label="Discord">
+                <DiscordIcon />
+              </a>
+              <a href="https://x.com/" target="_blank" rel="noreferrer" aria-label="X (Twitter)">
+                <XIcon />
+              </a>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   )
 }

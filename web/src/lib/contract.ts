@@ -30,6 +30,39 @@ let cachedSigner: ethers.Signer | null = null
 let cachedAccount: string | null = null
 let cachedUsdcDecimals: number | null = null
 
+// --- Rebuild provider/signer on demand (prevents NETWORK_ERROR: network changed) ---
+async function rebuildInjectedProviderAndSigner() {
+  const eth = (window as any).ethereum;
+  if (!eth) return;
+
+  try {
+    // Prefer 'any' network to reduce change events; fall back if not supported
+    // @ts-expect-error: second param allowed in some builds
+    injectedProvider = new BrowserProvider(eth, 'any');
+  } catch {
+    injectedProvider = new BrowserProvider(eth);
+  }
+
+  try {
+    cachedSigner = await injectedProvider.getSigner();
+    cachedAccount = await cachedSigner.getAddress();
+  } catch {
+    cachedSigner = null;
+    cachedAccount = null;
+  }
+
+  // Force decimals to refresh on new network
+  cachedUsdcDecimals = null;
+}
+
+async function ensureFreshSigner() {
+  if (!injectedProvider || !cachedSigner) {
+    await rebuildInjectedProviderAndSigner();
+  }
+  if (!cachedSigner) throw new Error('Wallet not connected');
+  return cachedSigner;
+}
+
 // ── ABIs ─────────────────────────────────────────────────────────
 const HiLoAbi = [
   // reads
@@ -95,12 +128,14 @@ export function hasInjectedWallet(): boolean {
 }
 
 export async function connectWallet(): Promise<string> {
-  if (!hasInjectedWallet()) throw new Error('No wallet detected (install MetaMask/Brave)')
-  injectedProvider = new BrowserProvider((window as any).ethereum)
-  await injectedProvider.send('eth_requestAccounts', [])
-  cachedSigner = await injectedProvider.getSigner()
-  cachedAccount = await cachedSigner.getAddress()
-  return cachedAccount!
+  if (!hasInjectedWallet()) throw new Error('No wallet detected (install MetaMask/Brave)');
+  await rebuildInjectedProviderAndSigner();
+  await injectedProvider!.send('eth_requestAccounts', []);
+  if (!cachedSigner) {
+    cachedSigner = await injectedProvider!.getSigner();
+    cachedAccount = await cachedSigner.getAddress();
+  }
+  return cachedAccount!;
 }
 
 export function getConnectedAccount(): string | null { return cachedAccount }
@@ -113,36 +148,50 @@ function requireSigner(): ethers.Signer {
   if (!cachedSigner) throw new Error('Wallet not connected')
   return cachedSigner
 }
-function gameWithSigner() { return new Contract(gameAddress(), HiLoAbi, requireSigner()) }
-function usdcWithSigner() { return new Contract(usdcAddress(), ERC20Abi, requireSigner()) }
+async function gameWithSignerAsync() {
+  return new Contract(gameAddress(), HiLoAbi, await ensureFreshSigner());
+}
+async function usdcWithSignerAsync() {
+  return new Contract(usdcAddress(), ERC20Abi, await ensureFreshSigner());
+}
 function gameRead()       { return new Contract(gameAddress(), HiLoAbi, injectedProvider ?? getReadProvider()) }
 function usdcRead()       { return new Contract(usdcAddress(), ERC20Abi, injectedProvider ?? getReadProvider()) }
 function hbkRead()        { return new Contract(hbkAddress(),  HBKAbi, injectedProvider ?? getReadProvider()) }
 
 // ── Network helper ───────────────────────────────────────────────
 export async function ensureNetwork43111() {
-  const eth = (window as any).ethereum
-  if (!eth) throw new Error('No wallet detected')
-  const current = await eth.request({ method: 'eth_chainId' })
-  if (current === NET.chainIdHex) return
-  try {
-    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: NET.chainIdHex }] })
-  } catch (e: any) {
-    if (e?.code === 4902) {
-      await eth.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: NET.chainIdHex,
-          chainName: NET.label,
-          nativeCurrency: { name: 'HEMI', symbol: 'HEMI', decimals: 18 },
-          rpcUrls: [NET.rpcUrl],
-          blockExplorerUrls: [NET.explorerUrl],
-        }],
-      })
-      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: NET.chainIdHex }] })
-    } else {
-      throw e
+  const eth = (window as any).ethereum;
+  if (!eth) throw new Error('No wallet detected');
+
+  const current = await eth.request({ method: 'eth_chainId' });
+  let changed = false;
+
+  if (current !== NET.chainIdHex) {
+    try {
+      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: NET.chainIdHex }] });
+      changed = true;
+    } catch (e: any) {
+      if (e?.code === 4902) {
+        await eth.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: NET.chainIdHex,
+            chainName: NET.label,
+            nativeCurrency: { name: 'HEMI', symbol: 'HEMI', decimals: 18 },
+            rpcUrls: [NET.rpcUrl],
+            blockExplorerUrls: [NET.explorerUrl],
+          }],
+        });
+        await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: NET.chainIdHex }] });
+        changed = true;
+      } else {
+        throw e;
+      }
     }
+  }
+
+  if (changed) {
+    await rebuildInjectedProviderAndSigner();
   }
 }
 
@@ -324,15 +373,15 @@ export async function simulatePlace(
 
 // ── Allowance & actions ──────────────────────────────────────────
 export async function ensureAllowance(amountUSDCe: string) {
-  const signer = requireSigner()
-  const owner = await signer.getAddress()
-  const usdc = usdcWithSigner()
-  const dec = await getUsdcDecimals()
-  const amount = parseUnits(amountUSDCe, dec)
-  const current: bigint = await usdc.allowance(owner, gameAddress())
+  const signer = await ensureFreshSigner();
+  const owner = await signer.getAddress();
+  const usdc = await usdcWithSignerAsync();
+  const dec = await getUsdcDecimals();
+  const amount = parseUnits(amountUSDCe, dec);
+  const current: bigint = await usdc.allowance(owner, gameAddress());
   if (current < amount) {
-    const tx = await usdc.approve(gameAddress(), amount)
-    await tx.wait()
+    const tx = await usdc.approve(gameAddress(), amount);
+    await tx.wait();
   }
 }
 
@@ -343,17 +392,17 @@ export async function placeBet(
   playerSeed: string,
   suggestedDelay = 0
 ) {
-  await ensureNetwork43111()
-  await ensureAllowance(amountUSDCe)
+  await ensureNetwork43111();
+  await ensureAllowance(amountUSDCe);
 
-  const sim = await simulatePlace(low, high, amountUSDCe, playerSeed, suggestedDelay)
-  if (!sim.ok) throw new Error(`placeBet precheck failed: ${sim.error}`)
+  const sim = await simulatePlace(low, high, amountUSDCe, playerSeed, suggestedDelay);
+  if (!sim.ok) throw new Error(`placeBet precheck failed: ${sim.error}`);
 
-  const game = gameWithSigner()
-  const dec = await getUsdcDecimals()
-  const amt = parseUnits(amountUSDCe, dec)
-  const tx = await game.placeBet(low, high, playerSeed, suggestedDelay, amt)
-  return await tx.wait()
+  const game = await gameWithSignerAsync();
+  const dec = await getUsdcDecimals();
+  const amt = parseUnits(amountUSDCe, dec);
+  const tx = await game.placeBet(low, high, playerSeed, suggestedDelay, amt);
+  return await tx.wait();
 }
 
 export async function placeBetAndGetId(
@@ -363,39 +412,39 @@ export async function placeBetAndGetId(
   playerSeed: string,
   suggestedDelay = 0
 ): Promise<number> {
-  await ensureNetwork43111()
-  await ensureAllowance(amountUSDCe)
-  const game = gameWithSigner()
-  const dec = await getUsdcDecimals()
-  const amt = parseUnits(amountUSDCe, dec)
-  const tx = await game.placeBet(low, high, playerSeed, suggestedDelay, amt)
-  const rcpt = await tx.wait()
+  await ensureNetwork43111();
+  await ensureAllowance(amountUSDCe);
+  const game = await gameWithSignerAsync();
+  const dec = await getUsdcDecimals();
+  const amt = parseUnits(amountUSDCe, dec);
+  const tx = await game.placeBet(low, high, playerSeed, suggestedDelay, amt);
+  const rcpt = await tx.wait();
   for (const log of rcpt.logs) {
     try {
-      const parsed = GameIface.parseLog(log)
-      if (parsed?.name === 'Placed') return Number(parsed.args.betId)
+      const parsed = GameIface.parseLog(log);
+      if (parsed?.name === 'Placed') return Number(parsed.args.betId);
     } catch {}
   }
-  const n = await gameRead().nextBetId()
-  return Number(n) - 1
+  const n = await gameRead().nextBetId();
+  return Number(n) - 1;
 }
 
 export async function settle(betId: number, playerSeed: string) {
-  await ensureNetwork43111()
-  const game = gameWithSigner()
-  const tx = await game.settle(betId, playerSeed)
-  return await tx.wait()
+  await ensureNetwork43111();
+  const game = await gameWithSignerAsync();
+  const tx = await game.settle(betId, playerSeed);
+  return await tx.wait();
 }
 
 export async function simulateSettle(betId: number, playerSeed: string): Promise<void> {
-  const game = gameWithSigner()
+  const game = await gameWithSignerAsync();
   // @ts-expect-error v6 exposes per-function helpers
-  await game.settle.staticCall(betId, playerSeed)
+  await game.settle.staticCall(betId, playerSeed);
 }
 
 export async function setBtcDelay(delay: number) {
-  await ensureNetwork43111()
-  const game = gameWithSigner()
-  const tx = await game.setBtcDelay(delay)
-  return await tx.wait()
+  await ensureNetwork43111();
+  const game = await gameWithSignerAsync();
+  const tx = await game.setBtcDelay(delay);
+  return await tx.wait();
 }

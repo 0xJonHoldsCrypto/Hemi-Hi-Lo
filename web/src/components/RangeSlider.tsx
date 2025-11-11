@@ -6,6 +6,7 @@ type Props = {
   low: number
   high: number
   onChange: (low: number, high: number) => void
+  hideLabels?: boolean
 }
 
 export default function RangeSlider({
@@ -14,6 +15,7 @@ export default function RangeSlider({
   low,
   high,
   onChange,
+  hideLabels = false,
 }: Props) {
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
 
@@ -58,10 +60,12 @@ export default function RangeSlider({
         className="range-thumb"
         aria-label="High bound"
       />
-      <div className="flex justify-between text-xs text-gray-400 mt-2">
-        <span>Low: <b>{low}</b></span>
-        <span>High: <b>{high}</b></span>
-      </div>
+      {!hideLabels && (
+        <div className="flex justify-between text-xs text-gray-400 mt-2">
+          <span>Low: <b>{low}</b></span>
+          <span>High: <b>{high}</b></span>
+        </div>
+      )}
     </div>
   )
 }

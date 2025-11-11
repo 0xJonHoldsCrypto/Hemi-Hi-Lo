@@ -506,12 +506,14 @@ return (
                 <span className="ml-1">Auto‑settle</span>
               </label>
               {account ? (
-                <span
-                  className="text-[11px] md:text-xs text-green-400 truncate max-w-[160px] md:max-w-[220px]"
+                <button
+                  type="button"
                   title={account}
+                  className="btn btn-primary text-[11px] md:text-xs px-3 py-1 max-w-[160px] md:max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap"
+                  onClick={() => { /* no-op; acts as a pill */ }}
                 >
-                  {account}
-                </span>
+                  {`${account.slice(0, 6)}…${account.slice(-4)}`}
+                </button>
               ) : (
                 <button className="btn btn-primary text-xs px-3 py-1" onClick={onConnect}>
                   {typeof (window as any).ethereum !== 'undefined' ? 'Connect Wallet' : 'No Wallet'}
@@ -559,12 +561,13 @@ return (
                       <div id="focal-confetti" style={{position:'absolute', inset:0, pointerEvents:'none'}} />
                     </div>
                   ) : (
-                    <div className="focal-slider-body">
+                    <div className="focal-slider-body is-custom">
                       <RangeSlider
                         min={0}
                         max={9999}
                         low={customLow}
                         high={customHigh}
+                        hideLabels
                         onChange={(lo, hi) => {
                           const clampedLo = Math.max(0, Math.min(9999, lo))
                           const clampedHi = Math.max(0, Math.min(9999, hi))
@@ -579,6 +582,12 @@ return (
                   )}
                   <div className="focal-slider-foot">
                     <span className="hint-left">Bottom</span>
+                    <span className="lowhigh">
+                      {mode === 'custom'
+                        ? <>Low: <b>{customLow}</b> · High: <b>{customHigh}</b></>
+                        : <>Selected: <b>{percent}%</b></>
+                      }
+                    </span>
                     <span className="hint-right">Top</span>
                   </div>
                   <div className="text-sm text-gray-300 mt-2 text-center">
@@ -589,23 +598,32 @@ return (
 
               <div className="gap-after-slider" />
               {/* MODE BUTTONS + QUICK STATS */}
-              <div className="mt-4 flex items-center justify-center flex-wrap mode-buttons">
-                <div className="flex mode-buttons">
+              <div className="mt-4">
+                {/* one-row buttons */}
+                <div className="mode-buttons">
                   <button
                     className={`btn btn-primary ${mode === 'low' ? 'ring-2 ring-hemi/60' : ''}`}
                     onClick={() => setMode('low')}
-                  >Bottom</button>
+                  >
+                    Bottom
+                  </button>
                   <button
                     className={`btn btn-primary ${mode === 'high' ? 'ring-2 ring-hemi/60' : ''}`}
                     onClick={() => setMode('high')}
-                  >Top</button>
+                  >
+                    Top
+                  </button>
                   <button
                     className={`btn btn-primary ${mode === 'custom' ? 'ring-2 ring-hemi/60' : ''}`}
                     onClick={() => setMode('custom')}
-                  >Custom</button>
+                  >
+                    Custom
+                  </button>
                 </div>
-                <div className="gap-after-modes" />
-                <div className="text-sm text-gray-300">
+                <div className="mode-spacer" />
+                <div className="h-3" />
+                {/* stats under the row */}
+                <div className="text-sm text-gray-300 mt-4 text-center">
                   Range: <b>{low}</b>–<b>{high}</b> (size {high - low + 1}) • Multiplier ≈ <b>{impliedMultiplier}×</b>
                 </div>
               </div>
@@ -621,30 +639,37 @@ return (
                 <div className="amount-accent">
                   <span className="label-pill">Amount (USDC.e)</span>
                   <input className="input w-full" value={amount} onChange={e => setAmount(e.target.value)} />
+                  <div className="full text-xs text-gray-500">
+                    Bal: {formatUnits(usdcBal, usdcDecimals)} • Allow: {formatUnits(usdcAllowance, usdcDecimals)}
+                  </div>
+                  <div className="full text-[11px] text-gray-500">
+                    Tip: amount ≤ maxBet &amp; profit ≤ maxProfit. Use “Simulate” to see the exact reason if blocked.
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">
-                  Bal: {formatUnits(usdcBal, usdcDecimals)} • Allow: {formatUnits(usdcAllowance, usdcDecimals)}
-                </div>
-                <div className="text-[11px] text-gray-500">
-                  Tip: amount ≤ maxBet & profit ≤ maxProfit. Use “Simulate” to see the exact reason if blocked.
-                </div>
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-3 pt-1">
                   <button className="btn btn-secondary flex-1" onClick={onSimulatePlace}>Simulate</button>
                   <button className="btn btn-primary flex-1" onClick={onPlace}>Place Bet</button>
                 </div>
               </div>
 
               <div className="space-y-3 w-full max-w-sm">
-                <label className="block mb-1 text-sm text-gray-400">Player seed (optional)</label>
-                <input className="input w-full" placeholder="(auto-generated if empty)" value={playerSeed} onChange={e => setPlayerSeed(e.target.value)} />
-                <div className="text-xs text-gray-500">btcDelay now: {btcDelayNow ?? '—'}</div>
+                <div className="amount-accent">
+                  <span className="label-pill">Player Seed</span>
+                  <input
+                    className="input w-full"
+                    placeholder="(auto-generated if empty)"
+                    value={playerSeed}
+                    onChange={e => setPlayerSeed(e.target.value)}
+                  />
+                  <div className="full text-xs text-gray-500">btcDelay now: {btcDelayNow ?? '—'}</div>
+                </div>
 
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-end pt-2">
                   <div>
                     <label className="block mb-1 text-sm text-gray-400">Bet ID</label>
                     <input className="input w-full" placeholder="(auto)" value={betId} onChange={e => setBetId(e.target.value)} />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-3">
                     <button className="btn" onClick={() => refreshStatus()}>Refresh</button>
                     <button className="btn btn-secondary" onClick={onSimulateSettle}>Simulate</button>
                   </div>
@@ -708,7 +733,7 @@ return (
             <div className="center-wrap">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold">Your Recent Bets</h2>
-                <button className="btn" onClick={() => refreshHistory(account)}>Refresh</button>
+                <button className="btn btn-primary" onClick={() => refreshHistory(account)}>Refresh</button>
               </div>
               <div className="overflow-x-auto rounded-lg border border-white/5 mt-2">
                 <table className="text-sm w-full recent-table">
@@ -767,7 +792,7 @@ return (
           </div>
         </section>
 
-        <footer className="site-footer app-shell" role="contentinfo">
+        <footer className="site-footer" role="contentinfo">
           <div className="row">
             <div className="left">
               <div className="brand">

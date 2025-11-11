@@ -315,6 +315,8 @@ input[type="range"] { accent-color: var(--hemi); }
 .title-web3 {
   font-family: 'Orbitron', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
   letter-spacing: 0.02em;
+  font-size: clamp(1rem, 2vw + 0.5rem, 1.5rem);
+  white-space: nowrap;
 }
 
 /* Small pill banner for TEST MODE in the nav */
@@ -362,6 +364,7 @@ input[type="range"] { accent-color: var(--hemi); }
   padding: .75rem .9rem;
   box-shadow: inset 0 0 0 1px rgba(255,106,0,0.08);
 }
+.amount-accent .full { grid-column: 1 / -1; }
 .amount-accent .label-pill {
   display: inline-flex;
   align-items: center;
@@ -380,8 +383,20 @@ input[type="range"] { accent-color: var(--hemi); }
 }
 
 /* --- Spacing tweaks for slider/mode/labels --- */
+/* Ensure the mode buttons always act like a flex row with gaps */
+.mode-buttons { 
+  display: flex !important; 
+  gap: .5rem !important; 
+  flex-wrap: wrap; 
+  justify-content: center; 
+}
+
+/* Global adjacent-button gap safeguard */
+.btn + .btn { 
+  margin-left: .5rem; 
+}
 .gap-after-slider { margin-top: .5rem; }
-.mode-buttons { gap: .5rem; }
+.mode-buttons { gap: .5rem !important; }
 .gap-after-modes { margin-top: .5rem; }
 
 
@@ -418,6 +433,9 @@ input[type="range"] { accent-color: var(--hemi); }
   gap: 1rem;
   border-top: 1px solid rgba(255,255,255,0.06);
   padding-top: 12px;
+  max-width: 56rem;          /* match nav width */
+  margin-left: auto;
+  margin-right: auto;
 }
 .site-footer .brand {
   display: flex;
@@ -560,6 +578,8 @@ background: linear-gradient(90deg, rgba(255,106,0,0.45), rgba(255,127,38,0.45), 
   padding: 4px 2px 0;
   font-size: 11px;
   color: #9aa3b2;
+  margin-top: 18px;
+  padding-top: 10px;
 }
 
 /* addictive-style animations on interaction */
@@ -625,4 +645,53 @@ background: linear-gradient(90deg, rgba(255,106,0,0.45), rgba(255,127,38,0.45), 
 @keyframes confettiFly {
   from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   to   { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(.8); }
+}
+
+/* --- Force a physical gap under the mode buttons --- */
+.mode-spacer { height: 12px; width: 100%; display: block; }
+@media (min-width: 768px) { .mode-spacer { height: 14px; } }
+
+/* --- Lift slider thumbs upward so they don't crowd labels --- */
+/* Generic focal slider inputs */
+.focal-slider-body input[type="range"] {
+  height: 28px; /* ensures we have room to nudge the thumb */
+}
+.focal-slider-body input[type="range"]::-webkit-slider-thumb {
+  margin-top: -8px; /* move circle upward relative to track center */
+}
+.focal-slider-body input[type="range"]::-moz-range-thumb {
+  margin-top: -8px;
+}
+/* Dual-range custom slider thumbs */
+.range-thumb::-webkit-slider-thumb {
+  margin-top: -8px;
+}
+.range-thumb::-moz-range-thumb {
+  margin-top: -8px;
+}
+/* Add a bit more breathing room between track and labels */
+.focal-slider-foot { margin-top: 10px; padding-top: 8px; }
+.focal-slider-body { padding-bottom: 18px; }
+/* ---- Custom mode tweaks: lift dual-range thumbs further & add space for labels ---- */
+.focal-slider-body.is-custom { padding-bottom: 34px; }
+
+/* Lift generic range input thumb when inside custom wrapper */
+.focal-slider-body.is-custom input[type="range"]::-webkit-slider-thumb { margin-top: -18px; }
+.focal-slider-body.is-custom input[type="range"]::-moz-range-thumb { margin-top: -18px; }
+
+/* Lift the dual-range inputs exported by RangeSlider (they use .range-thumb) */
+.focal-slider-body.is-custom .range-thumb::-webkit-slider-thumb { margin-top: -18px; }
+.focal-slider-body.is-custom .range-thumb::-moz-range-thumb { margin-top: -18px; }
+
+/* Give the foot labels a bit more offset in custom as well */
+.focal-slider-body.is-custom + .focal-slider-foot { margin-top: 14px; padding-top: 10px; }
+ 
+.focal-slider-foot { position: relative; }
+.focal-slider-foot .lowhigh {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: #cbd5e1;
+  font-size: 12px;
 }
